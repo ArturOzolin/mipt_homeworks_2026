@@ -7,6 +7,11 @@ NONPOSITIVE_VALUE_MSG = "Value must be grater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
 NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
+TYPE = "type"
+AMOUNT = "amount"
+DATE = "date"
+CATEGORY = "category"
+INCOME = "income"
 
 DATE_PARTS = 3
 DAY_LEN = 2
@@ -34,7 +39,11 @@ financial_transactions_storage: list[dict[str, Any]] = []
 
 
 def is_leap_year(year: int) -> bool:
-    return (year % 400 == 0.0) or ((year % 4 == 0.0) and (year % 100 != 0.0))
+    if year % 400 == 0:
+        return True
+    if year % 100 == 0:
+        return False
+    return year % 4 == 0
 
 
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
@@ -90,7 +99,7 @@ def parse_amount(value: str) -> float | None:
         return None
 
     amount = float(tmp)
-    if amount <= 0.0:
+    if amount <= 0:
         print(NONPOSITIVE_VALUE_MSG)
         return None
 
@@ -114,7 +123,7 @@ def income_handler(amount: float, income_date: str) -> str:
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append(
-        {"type": "income", "amount": amount, "date": date_tuple}
+        {TYPE: INCOME, AMOUNT: amount, "date": date_tuple}
     )
     return OP_SUCCESS_MSG
 
@@ -132,9 +141,9 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
 
     financial_transactions_storage.append(
         {
-            "type": "cost",
-            "category": category_name,
-            "amount": amount,
+            TYPE: "cost",
+            CATEGORY: category_name,
+            AMOUNT: amount,
             "date": date_tuple,
         }
     )
@@ -164,21 +173,21 @@ def stats_handler(report_date: str) -> str:
         d, m, y = item["date"]
 
         if (y, m, d) <= (y_t, m_t, d_t):
-            if item["type"] == "income":
-                total += item["amount"]
+            if item[TYPE] == INCOME:
+                total += item[AMOUNT]
             else:
-                total -= item["amount"]
+                total -= item[AMOUNT]
 
         if y == y_t and m == m_t and d <= d_t:
-            if item["type"] == "income":
-                income_m += item["amount"]
+            if item[TYPE] == INCOME:
+                income_m += item[AMOUNT]
             else:
-                cost_m += item["amount"]
-                category = item["category"].split("::")[1]
-                categories[category] = categories.get(category, 0.0) + item["amount"]
+                cost_m += item[AMOUNT]
+                category = item[CATEGORY].split("::")[1]
+                categories[category] = categories.get(category, 0) + item[AMOUNT]
 
     delta = income_m - cost_m
-    status = "profit amounted to" if delta >= 0.0 else "loss amounted to"
+    status = "profit amounted to" if delta >= 0 else "loss amounted to"
 
     lines = [
         f"Your statistics as of {report_date}:",
@@ -257,7 +266,7 @@ def main() -> None:
 
             command = parts[0]
 
-            if command == "income":
+            if command == INCOME:
                 handle_income(parts)
             elif command == "cost":
                 handle_cost(parts)
