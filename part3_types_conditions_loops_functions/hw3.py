@@ -231,10 +231,7 @@ def _format_stats_output(
         stats: dict[str, Any],
 ) -> str:
     delta = stats["income_m"] - stats["cost_m"]
-    if delta >= 0:
-        status = f"profit amounted to {delta:.2f}"
-    else:
-        status = f"loss amounted to {-delta:.2f}"
+    status = f"profit amounted to {delta:.2f}" if delta >= 0 else f"loss amounted to {-delta:.2f}"
 
     lines = [
         f"Your statistics as of {report_date}:",
