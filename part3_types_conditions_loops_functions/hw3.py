@@ -51,16 +51,19 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
 
     if len(parts) != DATE_PARTS:
         return None
-    if not (parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit()):
-        return None
-    if not (len(parts[0]) == DAY_LEN and len(parts[1]) == MONTH_LEN and len(parts[2]) == YEAR_LEN):
-        return None
+    flag = False
+    if not all(p.isdigit() for p in parts):
+        flag = True
+    lengths = (DAY_LEN, MONTH_LEN, YEAR_LEN)
+    if not all(len(p) == target for p, target in zip(parts, lengths)):
+        flag = True
 
     day, month, year = map(int, parts)
 
     if not (1 <= month <= MONTHS_IN_YEAR):
+        flag = True
+    if flag:
         return None
-
     days = [
         31,
         29 if is_leap_year(year) else 28,
@@ -123,7 +126,7 @@ def income_handler(amount: float, income_date: str) -> str:
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append(
-        {TYPE: INCOME, AMOUNT: amount, "date": date_tuple}
+        {TYPE: INCOME, AMOUNT: amount, DATE: date_tuple}
     )
     return OP_SUCCESS_MSG
 
@@ -144,7 +147,7 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
             TYPE: "cost",
             CATEGORY: category_name,
             AMOUNT: amount,
-            "date": date_tuple,
+            DATE: date_tuple,
         }
     )
     return OP_SUCCESS_MSG
@@ -170,7 +173,7 @@ def stats_handler(report_date: str) -> str:
     categories: dict[str, float] = {}
 
     for item in financial_transactions_storage:
-        d, m, y = item["date"]
+        d, m, y = item[DATE]
 
         if (y, m, d) <= (y_t, m_t, d_t):
             if item[TYPE] == INCOME:
