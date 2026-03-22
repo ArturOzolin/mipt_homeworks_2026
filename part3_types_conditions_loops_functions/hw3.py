@@ -34,7 +34,7 @@ financial_transactions_storage: list[dict[str, Any]] = []
 
 
 def is_leap_year(year: int) -> bool:
-    return (year % 400 == 0) or ((year % 4 == 0) and (year % 100 != 0))
+    return (year % 400 == 0.0) or ((year % 4 == 0.0) and (year % 100 != 0.0))
 
 
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
@@ -90,7 +90,7 @@ def parse_amount(value: str) -> float | None:
         return None
 
     amount = float(tmp)
-    if amount <= 0:
+    if amount <= 0.0:
         print(NONPOSITIVE_VALUE_MSG)
         return None
 
@@ -106,6 +106,8 @@ def validate_category(category: str) -> bool:
 
 
 def income_handler(amount: float, income_date: str) -> str:
+    if amount <= 0.0:
+        return NONPOSITIVE_VALUE_MSG
     financial_transactions_storage.append(
         {"type": "income", "amount": amount, "date": income_date}
     )
@@ -165,7 +167,7 @@ def stats_handler(report_date: str) -> str:
                 categories[category] = categories.get(category, 0.0) + item["amount"]
 
     delta = income_m - cost_m
-    status = "profit amounted to" if delta >= 0 else "loss amounted to"
+    status = "profit amounted to" if delta >= 0.0 else "loss amounted to"
 
     lines = [
         f"Your statistics as of {report_date}:",
@@ -242,13 +244,13 @@ def main() -> None:
             if not parts:
                 continue
 
-            cmd = parts[0]
+            command = parts[0]
 
-            if cmd == "income":
+            if command == "income":
                 handle_income(parts)
-            elif cmd == "cost":
+            elif command == "cost":
                 handle_cost(parts)
-            elif cmd == "stats":
+            elif command == "stats":
                 handle_stats(parts)
             else:
                 print(UNKNOWN_COMMAND_MSG)
