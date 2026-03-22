@@ -106,21 +106,36 @@ def validate_category(category: str) -> bool:
 
 
 def income_handler(amount: float, income_date: str) -> str:
-    if amount <= 0.0:
+    if amount <= 0:
         return NONPOSITIVE_VALUE_MSG
+
+    date_tuple = extract_date(income_date)
+    if date_tuple is None:
+        return INCORRECT_DATE_MSG
+
     financial_transactions_storage.append(
-        {"type": "income", "amount": amount, "date": income_date}
+        {"type": "income", "amount": amount, "date": date_tuple}
     )
     return OP_SUCCESS_MSG
 
 
 def cost_handler(category_name: str, amount: float, income_date: str) -> str:
+    if amount <= 0:
+        return NONPOSITIVE_VALUE_MSG
+
+    if not validate_category(category_name):
+        return NOT_EXISTS_CATEGORY
+
+    date_tuple = extract_date(income_date)
+    if date_tuple is None:
+        return INCORRECT_DATE_MSG
+
     financial_transactions_storage.append(
         {
             "type": "cost",
             "category": category_name,
             "amount": amount,
-            "date": income_date,
+            "date": date_tuple,
         }
     )
     return OP_SUCCESS_MSG
@@ -140,17 +155,13 @@ def stats_handler(report_date: str) -> str:
 
     d_t, m_t, y_t = date_tuple
 
-    total = 0.0
-    income_m = 0.0
-    cost_m = 0.0
+    total = 0
+    income_m = 0
+    cost_m = 0
     categories: dict[str, float] = {}
 
     for item in financial_transactions_storage:
-        dt = extract_date(item["date"])
-        if dt is None:
-            continue
-
-        d, m, y = dt
+        d, m, y = item["date"]
 
         if (y, m, d) <= (y_t, m_t, d_t):
             if item["type"] == "income":
