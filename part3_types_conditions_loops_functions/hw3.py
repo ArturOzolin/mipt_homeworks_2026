@@ -165,42 +165,57 @@ def cost_categories_handler() -> str:
     return "\n".join(result)
 
 
-def _update_total(item: dict[str, Any], current: float, target: tuple[int, int, int]) -> float:
+def _update_total(
+        item: dict[str, Any],
+        current: float,
+        y_t: int,
+        m_t: int,
+        d_t: int,
+) -> float:
     d, m, y = item[DATE]
-    y_t, m_t, d_t = target[2], target[1], target[0]
 
-    if (y, m, d) <= (y_t, m_t, d_t):
-        if item[TYPE] == INCOME:
-            return current + item[AMOUNT]
-        return current - item[AMOUNT]
-    return current
+    if (y, m, d) > (y_t, m_t, d_t):
+        return current
+
+    if item[TYPE] == INCOME:
+        return current + item[AMOUNT]
+
+    return current - item[AMOUNT]
+
+
+def _update_categories(
+        item: dict[str, Any],
+        categories: dict[str, float],
+) -> None:
+    category = item[CATEGORY].split("::")[1]
+    categories[category] = categories.get(category, 0) + item[AMOUNT]
 
 
 def _update_month(
         item: dict[str, Any],
         income_m: float,
         cost_m: float,
+        y_t: int,
+        m_t: int,
+        d_t: int,
         categories: dict[str, float],
-        target: tuple[int, int, int],
 ) -> tuple[float, float]:
     d, m, y = item[DATE]
-    d_t, m_t, y_t = target
 
-    if y == y_t and m == m_t and d <= d_t:
-        if item[TYPE] == INCOME:
-            return income_m + item[AMOUNT], cost_m
+    if (y, m) != (y_t, m_t) or d > d_t:
+        return income_m, cost_m
 
-        cost_m += item[AMOUNT]
-        category = item[CATEGORY].split("::")[1]
-        categories[category] = categories.get(category, 0) + item[AMOUNT]
+    if item[TYPE] == INCOME:
+        return income_m + item[AMOUNT], cost_m
 
-    return income_m, cost_m
+    _update_categories(item, categories)
+    return income_m, cost_m + item[AMOUNT]
 
 
-def stats_handler(report_date: str) -> str:
-    date_tuple = extract_date(report_date)
-    if date_tuple is None:
-        return INCORRECT_DATE_MSG
+def _collect_stats(
+        date_tuple: tuple[int, int, int],
+) -> tuple[float, float, float, dict[str, float]]:
+    y_t, m_t, d_t = date_tuple[2], date_tuple[1], date_tuple[0]
 
     total = 0
     income_m = 0
@@ -208,8 +223,26 @@ def stats_handler(report_date: str) -> str:
     categories: dict[str, float] = {}
 
     for item in financial_transactions_storage:
-        total = _update_total(item, total, date_tuple)
-        income_m, cost_m = _update_month(item, income_m, cost_m, categories, date_tuple)
+        total = _update_total(item, total, y_t, m_t, d_t)
+        income_m, cost_m = _update_month(
+            item,
+            income_m,
+            cost_m,
+            y_t,
+            m_t,
+            d_t,
+            categories,
+        )
+
+    return total, income_m, cost_m, categories
+
+
+def stats_handler(report_date: str) -> str:
+    date_tuple = extract_date(report_date)
+    if date_tuple is None:
+        return INCORRECT_DATE_MSG
+
+    total, income_m, cost_m, categories = _collect_stats(date_tuple)
 
     delta = income_m - cost_m
     status = "profit amounted to" if delta >= 0 else "loss amounted to"
