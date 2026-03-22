@@ -165,36 +165,91 @@ def cost_categories_handler() -> str:
     return "\n".join(result)
 
 
-def _update_total(item: dict[str, Any], current: float, target: tuple[int, int, int]) -> float:
-    d, m, y = item[DATE]
-    y_t, m_t, d_t = target[2], target[1], target[0]
+def _is_same_month_and_past(
+        date1: tuple[int, int, int],
+        date2: tuple[int, int, int],
+) -> bool:
+    if date1[2] != date2[2]:
+        return False
+    if date1[1] != date2[1]:
+        return False
+    return date1[0] <= date2[0]
 
-    if (y, m, d) <= (y_t, m_t, d_t):
-        if item[TYPE] == INCOME:
-            return current + item[AMOUNT]
-        return current - item[AMOUNT]
-    return current
 
-
-def _update_month(
+def _update_month_cost(
         item: dict[str, Any],
-        income_m: float,
-        cost_m: float,
-        categories: dict[str, float],
+        stats: dict[str, Any],
+) -> None:
+    stats["cost_m"] += item[AMOUNT]
+    category = item[CATEGORY].split("::")[1]
+    categories = stats["categories"]
+    categories[category] = categories.get(category, 0.0) + item[AMOUNT]
+
+
+def _update_stats_for_item(
+        item: dict[str, Any],
+        stats: dict[str, Any],
         target: tuple[int, int, int],
-) -> tuple[float, float]:
-    d, m, y = item[DATE]
-    d_t, m_t, y_t = target
-
-    if y == y_t and m == m_t and d <= d_t:
+) -> None:
+    item_date = item[DATE]
+    if item_date[::-1] <= target[::-1]:
         if item[TYPE] == INCOME:
-            return income_m + item[AMOUNT], cost_m
+            stats["total"] += item[AMOUNT]
+        else:
+            stats["total"] -= item[AMOUNT]
 
-        cost_m += item[AMOUNT]
-        category = item[CATEGORY].split("::")[1]
-        categories[category] = categories.get(category, 0) + item[AMOUNT]
+    if _is_same_month_and_past(item_date, target):
+        if item[TYPE] == INCOME:
+            stats["income_m"] += item[AMOUNT]
+        else:
+            _update_month_cost(item, stats)
 
-    return income_m, cost_m
+
+def _calculate_stats(target: tuple[int, int, int]) -> dict[str, Any]:
+    stats: dict[str, Any] = {
+        "total": 0,
+        "income_m": 0,
+        "cost_m": 0,
+        "categories": {},
+    }
+    for item in financial_transactions_storage:
+        _update_stats_for_item(item, stats, target)
+    return stats
+
+
+def _format_categories(
+        categories: dict[str, float],
+) -> list[str]:
+    lines = []
+    for index, (category, amount) in enumerate(sorted(categories.items()), 1):
+        lines.append(f"{index}. {category}: {int(amount) if amount.is_integer() else amount}")
+    return lines
+
+
+def _format_stats_output(
+        report_date: str,
+        stats: dict[str, Any],
+) -> str:
+    delta = stats["income_m"] - stats["cost_m"]
+    if delta >= 0:
+        status = f"profit amounted to {delta:.2f}"
+    else:
+        status = f"loss amounted to {-delta:.2f}"
+
+    lines = [
+        f"Your statistics as of {report_date}:",
+        f"Total capital: {stats['total']:.2f} rubles",
+        f"This month, the {status} rubles.",
+        f"Income: {stats['income_m']:.2f} rubles",
+        f"Expenses: {stats['cost_m']:.2f} rubles",
+        "",
+        "Details (category: amount):",
+    ]
+
+    if stats["categories"]:
+        lines.extend(_format_categories(stats["categories"]))
+
+    return "\n".join(lines)
 
 
 def stats_handler(report_date: str) -> str:
@@ -202,35 +257,8 @@ def stats_handler(report_date: str) -> str:
     if date_tuple is None:
         return INCORRECT_DATE_MSG
 
-    total = 0
-    income_m = 0
-    cost_m = 0
-    categories: dict[str, float] = {}
-
-    for item in financial_transactions_storage:
-        total = _update_total(item, total, date_tuple)
-        income_m, cost_m = _update_month(item, income_m, cost_m, categories, date_tuple)
-
-    delta = income_m - cost_m
-    status = "profit amounted to" if delta >= 0 else "loss amounted to"
-
-    lines = [
-        f"Your statistics as of {report_date}:",
-        f"Total capital: {total:.2f} rubles",
-        f"This month, the {status} {abs(delta):.2f} rubles.",
-        f"Income: {income_m:.2f} rubles",
-        f"Expenses: {cost_m:.2f} rubles",
-        "",
-        "Details (category: amount):",
-    ]
-
-    if categories:
-        for i, category in enumerate(sorted(categories), 1):
-            val = categories[category]
-            val_str = int(val) if val.is_integer() else val
-            lines.append(f"{i}. {category}: {val_str}")
-
-    return "\n".join(lines)
+    stats = _calculate_stats(date_tuple)
+    return _format_stats_output(report_date, stats)
 
 
 def handle_income(parts: list[str]) -> None:
