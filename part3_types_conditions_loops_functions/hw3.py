@@ -55,7 +55,8 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     if not all(p.isdigit() for p in parts):
         flag = True
     lengths = (DAY_LEN, MONTH_LEN, YEAR_LEN)
-    if not all(len(p) == target for p, target in zip(parts, lengths, strict=True)):
+    checks = (len(p) == target for p, target in zip(parts, lengths, strict=True))
+    if not all(checks):
         flag = True
     if flag:
         return None
