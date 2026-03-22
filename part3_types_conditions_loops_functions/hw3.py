@@ -46,26 +46,16 @@ def is_leap_year(year: int) -> bool:
     return year % 4 == 0
 
 
-def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
-    parts = maybe_dt.split("-")
-
+def _valid_parts(parts: list[str]) -> bool:
     if len(parts) != DATE_PARTS:
-        return None
-    flag = False
+        return False
     if not all(p.isdigit() for p in parts):
-        flag = True
-    actual_lengths = [len(p) for p in parts]
-    expected_lengths = [DAY_LEN, MONTH_LEN, YEAR_LEN]
-    if actual_lengths != expected_lengths:
-        flag = True
-    if flag:
-        return None
-    day, month, year = map(int, parts)
+        return False
+    lengths = [len(p) for p in parts]
+    return lengths == [DAY_LEN, MONTH_LEN, YEAR_LEN]
 
-    if not (1 <= month <= MONTHS_IN_YEAR):
-        flag = True
-    if flag:
-        return None
+
+def _valid_day(day: int, month: int, year: int) -> bool:
     days = [
         31,
         29 if is_leap_year(year) else 28,
@@ -80,8 +70,21 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
         30,
         31,
     ]
+    return 1 <= day <= days[month - 1]
 
-    if not (1 <= day <= days[month - 1]):
+
+def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
+    parts = maybe_dt.split("-")
+
+    if not _valid_parts(parts):
+        return None
+
+    day, month, year = map(int, parts)
+
+    if not (1 <= month <= MONTHS_IN_YEAR):
+        return None
+
+    if not _valid_day(day, month, year):
         return None
 
     return day, month, year
@@ -162,12 +165,42 @@ def cost_categories_handler() -> str:
     return "\n".join(result)
 
 
+def _update_total(item: dict[str, Any], current: float, target: tuple[int, int, int]) -> float:
+    d, m, y = item[DATE]
+    y_t, m_t, d_t = target[2], target[1], target[0]
+
+    if (y, m, d) <= (y_t, m_t, d_t):
+        if item[TYPE] == INCOME:
+            return current + item[AMOUNT]
+        return current - item[AMOUNT]
+    return current
+
+
+def _update_month(
+        item: dict[str, Any],
+        income_m: float,
+        cost_m: float,
+        categories: dict[str, float],
+        target: tuple[int, int, int],
+) -> tuple[float, float]:
+    d, m, y = item[DATE]
+    d_t, m_t, y_t = target
+
+    if y == y_t and m == m_t and d <= d_t:
+        if item[TYPE] == INCOME:
+            return income_m + item[AMOUNT], cost_m
+
+        cost_m += item[AMOUNT]
+        category = item[CATEGORY].split("::")[1]
+        categories[category] = categories.get(category, 0) + item[AMOUNT]
+
+    return income_m, cost_m
+
+
 def stats_handler(report_date: str) -> str:
     date_tuple = extract_date(report_date)
     if date_tuple is None:
         return INCORRECT_DATE_MSG
-
-    d_t, m_t, y_t = date_tuple
 
     total = 0
     income_m = 0
@@ -175,21 +208,8 @@ def stats_handler(report_date: str) -> str:
     categories: dict[str, float] = {}
 
     for item in financial_transactions_storage:
-        d, m, y = item[DATE]
-
-        if (y, m, d) <= (y_t, m_t, d_t):
-            if item[TYPE] == INCOME:
-                total += item[AMOUNT]
-            else:
-                total -= item[AMOUNT]
-
-        if y == y_t and m == m_t and d <= d_t:
-            if item[TYPE] == INCOME:
-                income_m += item[AMOUNT]
-            else:
-                cost_m += item[AMOUNT]
-                category = item[CATEGORY].split("::")[1]
-                categories[category] = categories.get(category, 0) + item[AMOUNT]
+        total = _update_total(item, total, date_tuple)
+        income_m, cost_m = _update_month(item, income_m, cost_m, categories, date_tuple)
 
     delta = income_m - cost_m
     status = "profit amounted to" if delta >= 0 else "loss amounted to"
@@ -262,6 +282,17 @@ def handle_stats(parts: list[str]) -> None:
     print(stats_handler(parts[1]))
 
 
+def _dispatch(command: str, parts: list[str]) -> None:
+    if command == INCOME:
+        handle_income(parts)
+    elif command == "cost":
+        handle_cost(parts)
+    elif command == "stats":
+        handle_stats(parts)
+    else:
+        print(UNKNOWN_COMMAND_MSG)
+
+
 def main() -> None:
     with open(0) as f:
         for line in f:
@@ -269,16 +300,7 @@ def main() -> None:
             if not parts:
                 continue
 
-            command = parts[0]
-
-            if command == INCOME:
-                handle_income(parts)
-            elif command == "cost":
-                handle_cost(parts)
-            elif command == "stats":
-                handle_stats(parts)
-            else:
-                print(UNKNOWN_COMMAND_MSG)
+            _dispatch(parts[0], parts)
 
 
 if __name__ == "__main__":
