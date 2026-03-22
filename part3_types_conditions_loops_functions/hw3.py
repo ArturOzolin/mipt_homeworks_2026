@@ -103,24 +103,13 @@ def parse_amount(value: str) -> float | None:
     normalized_val = value.replace(",", ".", 1)
 
     if normalized_val.count(".") > 1:
-        print(UNKNOWN_COMMAND_MSG)
         return None
 
-    if normalized_val.startswith("-"):
-        print(NONPOSITIVE_VALUE_MSG)
+    check = normalized_val.removeprefix("-").replace(".", "", 1)
+    if not check or not check.isdigit():
         return None
 
-    check = normalized_val.replace(".", "", 1)
-    if not check.isdigit():
-        print(UNKNOWN_COMMAND_MSG)
-        return None
-
-    amount = float(normalized_val)
-    if amount <= 0:
-        print(NONPOSITIVE_VALUE_MSG)
-        return None
-
-    return amount
+    return float(normalized_val)
 
 
 def validate_category(category: str) -> bool:
@@ -133,10 +122,12 @@ def validate_category(category: str) -> bool:
 
 def income_handler(amount: float, transaction_date: str) -> str:
     if amount <= 0:
+        financial_transactions_storage.append({})
         return NONPOSITIVE_VALUE_MSG
 
     date_tuple = extract_date(transaction_date)
     if date_tuple is None:
+        financial_transactions_storage.append({})
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append(
@@ -147,13 +138,16 @@ def income_handler(amount: float, transaction_date: str) -> str:
 
 def cost_handler(category_name: str, amount: float, transaction_date: str) -> str:
     if amount <= 0:
+        financial_transactions_storage.append({})
         return NONPOSITIVE_VALUE_MSG
 
     if not validate_category(category_name):
+        financial_transactions_storage.append({})
         return NOT_EXISTS_CATEGORY
 
     date_tuple = extract_date(transaction_date)
     if date_tuple is None:
+        financial_transactions_storage.append({})
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append(
@@ -175,8 +169,8 @@ def cost_categories_handler() -> str:
 
 
 def _is_same_month_and_past(
-        item_date: tuple[int, int, int],
-        target_date: tuple[int, int, int],
+    item_date: tuple[int, int, int],
+    target_date: tuple[int, int, int],
 ) -> bool:
     if item_date[2] != target_date[2]:
         return False
@@ -186,15 +180,15 @@ def _is_same_month_and_past(
 
 
 def _is_past_or_present(
-        item_date: tuple[int, int, int],
-        target_date: tuple[int, int, int],
+    item_date: tuple[int, int, int],
+    target_date: tuple[int, int, int],
 ) -> bool:
     return tuple(reversed(item_date)) <= tuple(reversed(target_date))
 
 
 def _update_month_cost(
-        item: dict[str, Any],
-        stats: dict[str, Any],
+    item: dict[str, Any],
+    stats: dict[str, Any],
 ) -> None:
     stats[STATS_COST] += item[AMOUNT]
     category = item[CATEGORY].split(CATEGORY_SEP)[1]
@@ -203,9 +197,9 @@ def _update_month_cost(
 
 
 def _update_stats_for_item(
-        item: dict[str, Any],
-        stats: dict[str, Any],
-        target: tuple[int, int, int],
+    item: dict[str, Any],
+    stats: dict[str, Any],
+    target: tuple[int, int, int],
 ) -> None:
     item_date = item[DATE]
     if _is_past_or_present(item_date, target):
@@ -229,6 +223,8 @@ def _calculate_stats(target: tuple[int, int, int]) -> dict[str, Any]:
         STATS_CATEGORIES: {},
     }
     for item in financial_transactions_storage:
+        if not item:
+            continue
         _update_stats_for_item(item, stats, target)
     return stats
 
@@ -240,7 +236,7 @@ def _format_category_line(index: int, category: str, amount: float) -> str:
 
 
 def _format_categories(
-        categories_dict: dict[str, float],
+    categories_dict: dict[str, float],
 ) -> list[str]:
     return [
         _format_category_line(index, category, amount)
@@ -256,8 +252,8 @@ def _get_status_message(delta: float) -> str:
 
 
 def _format_stats_output(
-        report_date: str,
-        stats: dict[str, Any],
+    report_date: str,
+    stats: dict[str, Any],
 ) -> str:
     delta = stats[STATS_INCOME] - stats[STATS_COST]
     status = _get_status_message(delta)
@@ -294,10 +290,7 @@ def handle_income(parts: list[str]) -> None:
 
     amount = parse_amount(parts[1])
     if amount is None:
-        return
-
-    if extract_date(parts[2]) is None:
-        print(INCORRECT_DATE_MSG)
+        print(UNKNOWN_COMMAND_MSG)
         return
 
     print(income_handler(amount, parts[2]))
@@ -312,20 +305,16 @@ def handle_cost(parts: list[str]) -> None:
         print(UNKNOWN_COMMAND_MSG)
         return
 
-    if not validate_category(parts[1]):
-        print(NOT_EXISTS_CATEGORY)
-        print(cost_categories_handler())
-        return
-
     amount = parse_amount(parts[2])
     if amount is None:
+        print(UNKNOWN_COMMAND_MSG)
         return
 
-    if extract_date(parts[3]) is None:
-        print(INCORRECT_DATE_MSG)
-        return
+    result = cost_handler(parts[1], amount, parts[3])
+    print(result)
 
-    print(cost_handler(parts[1], amount, parts[3]))
+    if result == NOT_EXISTS_CATEGORY:
+        print(cost_categories_handler())
 
 
 def handle_stats(parts: list[str]) -> None:
