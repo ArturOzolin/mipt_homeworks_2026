@@ -101,7 +101,7 @@ class LFUPolicy(Policy[K]):
             candidates = list(self._key_counter.keys())[:-1]
             if candidates:
                 return min(candidates, key=lambda x: self._key_counter[x])
-            return list(self._key_counter.keys())[0]
+            return next(iter(self._key_counter))
         return None
 
     def remove_key(self, key: K) -> None:
