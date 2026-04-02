@@ -2,7 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar, overload
 
-from interfaces import Cache, HasCache, Policy, Storage
+from part4_oop.interfaces import Cache, HasCache, Policy, Storage
 
 K_contra = TypeVar("K_contra", contravariant=True)
 K = TypeVar("K")
@@ -150,17 +150,15 @@ class CachedProperty[V]:
         self.func = func
 
     @overload
-    def __get__(self, instance: None, owner: type[Any]) -> "CachedProperty[V]":
-        ...
+    def __get__(self, instance: None, owner: type[Any]) -> "CachedProperty[V]": ...
 
     @overload
-    def __get__(self, instance: HasCache[str, V], owner: type[Any]) -> V:
-        ...
+    def __get__(self, instance: HasCache[str, V], owner: type[Any]) -> V: ...
 
     def __get__(
-            self,
-            instance: HasCache[str, V] | None,
-            owner: type[Any],
+        self,
+        instance: HasCache[str, V] | None,
+        owner: type[Any],
     ) -> "CachedProperty[V] | V":
         if instance is None:
             return self
