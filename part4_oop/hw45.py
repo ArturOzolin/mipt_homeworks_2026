@@ -17,13 +17,14 @@ class DictStorage(Storage[K, V]):
         self._data[key] = value
 
     def get(self, key: K) -> V | None:
-        return self._data.get(key)
+        return self._data.get(key, None)
 
     def exists(self, key: K) -> bool:
         return key in self._data
 
     def remove(self, key: K) -> None:
-        self._data.pop(key)
+        if key in self._data:
+            self._data.pop(key)
 
     def clear(self) -> None:
         self._data.clear()
@@ -97,11 +98,15 @@ class LFUPolicy(Policy[K]):
         if not self.has_keys:
             return None
         if len(self._key_counter) > self.capacity:
-            return min(self._key_counter, key=lambda x: self._key_counter[x])
+            candidates = list(self._key_counter.keys())[:-1]
+            if candidates:
+                return min(candidates, key=lambda x: self._key_counter[x])
+            return list(self._key_counter.keys())[0]
         return None
 
     def remove_key(self, key: K) -> None:
-        self._key_counter.pop(key)
+        if key in self._key_counter:
+            self._key_counter.pop(key)
 
     def clear(self) -> None:
         self._key_counter.clear()
