@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, overload
+from typing import Any, TypeVar
 
 from part4_oop.interfaces import Cache, HasCache, Policy, Storage
 
@@ -150,25 +150,16 @@ class MIPTCache(Cache[K, V]):
         self.policy.clear()
 
 
-class CachedProperty[V]:
+class CachedProperty:
     def __init__(self, func: Callable[..., V]) -> None:
         self.func = func
 
-    @overload
-    def __get__(self, instance: None, owner: type[Any]) -> "CachedProperty[V]": ...
-
-    @overload
-    def __get__(self, instance: HasCache[str, V], owner: type[Any]) -> V: ...
-
-    def __get__(
-        self,
-        instance: HasCache[str, V] | None,
-        owner: type[Any],
-    ) -> "CachedProperty[V] | V":
+    def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> Any:
         if instance is None:
             return self
 
         cache_key = self.func.__name__
+
         if instance.cache.exists(cache_key):
             cached_value = instance.cache.get(cache_key)
             if cached_value is not None:
