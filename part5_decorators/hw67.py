@@ -33,7 +33,7 @@ class CircuitBreaker:
         critical_count: int = 5,
         time_to_recover: int = 30,
         triggers_on: type[Exception] = Exception,
-    ):
+    ) -> None:
         errors = []
         if not isinstance(critical_count, int) or critical_count <= 0:
             errors.append(ValueError(INVALID_CRITICAL_COUNT))
@@ -53,7 +53,7 @@ class CircuitBreaker:
         block_time = None
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
             nonlocal failures, block_time
 
             self.check_block(func, block_time)
@@ -77,10 +77,10 @@ class CircuitBreaker:
 
         return wrapper
 
-    def get_func_name(self, func: CallableWithMeta) -> str:
+    def get_func_name(self, func: CallableWithMeta[Any, Any]) -> str:
         return f"{func.__module__}.{func.__name__}"
 
-    def check_block(self, func: CallableWithMeta, block_time: datetime.datetime | None):
+    def check_block(self, func: CallableWithMeta[Any, Any], block_time: datetime.datetime | None) -> None:
         if block_time is None:
             return
 
@@ -96,7 +96,7 @@ class CircuitBreaker:
 circuit_breaker = CircuitBreaker(5, 30, Exception)
 
 
-@circuit_breaker
+# @circuit_breaker
 def get_comments(post_id: int) -> Any:
     response = urlopen(f"https://jsonplaceholder.typicode.com/comments?postId={post_id}")
     return json.loads(response.read())
