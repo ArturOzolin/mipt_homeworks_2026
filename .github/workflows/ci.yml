@@ -17,9 +17,9 @@ on:
         default: false
         type: boolean
   push:
-    branches: [main, master]
+    branches: [main, master, feature/homework_3]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, feature/homework_3]
 
 jobs:
   detect-changes:
